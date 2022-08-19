@@ -16,7 +16,7 @@ String STEP;
 
 AsyncWebServer server(80);  //Создаем сервер на порту 80
 
-//Основная страница
+//Меню выбора
 const char main_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -48,82 +48,78 @@ const char main_html[] PROGMEM = R"rawliteral(
     </style>
   </head>
   <body>
-    <form action="/" method="POST">
-      <div class="noselect">
+    <div class="noselect">
+      <!-- Форма для выбора режима -->
+      <form action="/" method="POST">
         <p>Выбранный режим: <strong>%STATE%</strong></p>
-      </div>
-      <style>
-        /* Положение радио кнопок (текст) */
-        .container {
-          display: block;
-          position: relative;
-          padding-left: 35px;
-          margin-bottom: 20px;
-          cursor: pointer;
-          font-size: 22px;
-          -webkit-user-select: none;
-          -moz-user-select: none;
-          -ms-user-select: none;
-          user-select: none;
-        }
-        /* Скрываем переключатели по умолчанию */
-        .container input {
-          position: center;
-          opacity: 0;
-          cursor: pointer;
-        }
-        /* Создание пользовательского переключателя */
-        .checkmark {
-          position: absolute;
-          top: 0;
-          left: 70px;
-          height: 25px;
-          width: 25px;
-          background-color: #eee;
-          border-radius: 50%;
-        }
-        /* Когда переключатель установлен, добавляем синий фон */
-        .container input:checked ~ .checkmark {
-          background-color: #2196f3;
-        }
-      </style>
-
-      <!-- Радио кнопки (выбор кнопки отправляется запросом на сервер, по умолчанию ничего не выбрано) -->
-      <label class="container"
-        >Диафрагма
-        <input type="radio" name="direction" value="mode1" id="mode1" />
-        <span class="checkmark"></span>
-      </label>
-      <label class="container"
-        >ZOOM
-        <input type="radio" name="direction" value="mode2" />
-        <span class="checkmark"></span>
-      </label>
-      <label class="container"
-        >Фокус
-        <input type="radio" name="direction" value="mode3" />
-        <span class="checkmark"></span>
-      </label>
-      <label class="container"
-        >Зеркало
-        <input type="radio" name="direction" value="mode4" />
-        <span class="checkmark"></span>
-      </label>
-      <label class="container"
-        >Передний отрезок
-        <input type="radio" name="direction" value="frontSeg" />
-        <span class="checkmark"></span>
-      </label>
-      <label class="container"
-        >Задний отрезок
-        <input type="radio" name="direction" value="backSeg" />
-        <span class="checkmark"></span>
-      </label>
-
-      <div class="noselect"><input type="submit" value="Выбрать" style="height: 50px" /><br /><br /></div>
-    </form>
-    <form action="/" method="POST">
-      <div class="noselect">
+        <style>
+          /* Положение радио кнопок (текст) */
+          .container {
+            display: block;
+            position: relative;
+            padding-left: 35px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            font-size: 22px;
+          }
+          /* Скрываем переключатели по умолчанию */
+          .container input {
+            position: center;
+            opacity: 0;
+            cursor: pointer;
+          }
+          /* Создание пользовательского переключателя */
+          .checkmark {
+            position: absolute;
+            top: 0;
+            left: 70px;
+            height: 25px;
+            width: 25px;
+            background-color: #eee;
+            border-radius: 50%;
+          }
+          /* Когда переключатель установлен, добавляем синий фон */
+          .container input:checked ~ .checkmark {
+            background-color: #2196f3;
+          }
+        </style>
+        <!-- Радио кнопки (выбор кнопки отправляется запросом на сервер, по умолчанию ничего не выбрано) -->
+        <label class="container"
+          >Диафрагма
+          <input type="radio" name="direction" value="mode1" id="mode1" />
+          <span class="checkmark"></span>
+        </label>
+        <label class="container"
+          >ZOOM
+          <input type="radio" name="direction" value="mode2" />
+          <span class="checkmark"></span>
+        </label>
+        <label class="container"
+          >Фокус
+          <input type="radio" name="direction" value="mode3" />
+          <span class="checkmark"></span>
+        </label>
+        <label class="container"
+          >Зеркало
+          <input type="radio" name="direction" value="mode4" />
+          <span class="checkmark"></span>
+        </label>
+        <label class="container"
+          >Передний отрезок
+          <input type="radio" name="direction" value="frontSeg" />
+          <span class="checkmark"></span>
+        </label>
+        <label class="container"
+          >Задний отрезок
+          <input type="radio" name="direction" value="backSeg" />
+          <span class="checkmark"></span>
+        </label>
+        <!-- Отправка формы на сервер -->
+        <input type="submit" value="Выбрать" style="height: 50px" />
+      </form>
+      <br />
+      <!-- Форма для настройки положений (передний и задний отрезки) -->
+      <form action="/" method="POST">
         <p>Статус переднего отрезка: <strong>%FRONT%</strong></p>
         <span>Передний отрезок: </span>
         <input type="submit" value="Сохранить" formaction="/frontSegment" style="height: 50px" />
@@ -134,12 +130,12 @@ const char main_html[] PROGMEM = R"rawliteral(
         <input type="submit" value="Сохранить" formaction="/backSegment" style="height: 50px" />
         <input type="submit" value="Удалить" formaction="/DbackSegment" style="height: 50px" />
         <br /><br />
-      </div>
-    </form>
+      </form>
+    </div>
   </body>
 </html>)rawliteral";
 
-
+//Управление (лево-право)
 const char keyboard_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -170,20 +166,14 @@ const char keyboard_html[] PROGMEM = R"rawliteral(
         box-shadow: 0 6px #999;
         margin-left: 5px;
         margin-right: 5px;
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -khtml-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-        -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
-        -webkit-tap-highlight-color: transparent;
       }
+      /* Стиль при нажатии */
       .buttonMove:active {
         background-color: #a9a9a9;
         box-shadow: 0 4px #666;
         transform: translateY(2px);
       }
+      /* Отменяем выделения при нажатии */
       .noselect {
         -webkit-touch-callout: none;
         -webkit-user-select: none;
@@ -191,49 +181,46 @@ const char keyboard_html[] PROGMEM = R"rawliteral(
         -moz-user-select: none;
         -ms-user-select: none;
         user-select: none;
-        -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
-        -webkit-tap-highlight-color: transparent;
       }
     </style>
   </head>
   <body>
-    <form action="/" method="POST">
-      <div class="noselect">
-        <p>Выбранный режим: <strong>%STATE%</strong></p>
-      </div>
-    </form>
     <div class="noselect">
+      <!-- Форма для выбора режима -->
+      <form action="/" method="POST">
+        <p>Выбранный режим: <strong>%STATE%</strong></p>
+        <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </form>
+      <!-- Кнопки управления -->
       <button class="buttonMove" ontouchstart="toggleCheckbox('leftFastOn');" ontouchend="toggleCheckbox('leftFastOff');">&lt;&lt;</button>
       <button class="buttonMove" ontouchstart="toggleCheckbox('leftOn');" ontouchend="toggleCheckbox('leftOff');">&lt;</button>
       <button class="buttonMove" ontouchstart="toggleCheckbox('rightFastOn');" ontouchend="toggleCheckbox('rightFastOff');">></button>
       <button class="buttonMove" ontouchstart="toggleCheckbox('rightOn');" ontouchend="toggleCheckbox('rightOff');">>></button>
-    </div>
-    <form action="/" method="POST">
-      <div class="noselect">
+      <!-- Форма для выбора шага  -->
+      <form action="/" method="POST">
         <p>Выбранный режим шага: <strong>%STEP%</strong></p>
         <input type="submit" value="    Шаг    " formaction="/step" style="height: 50px" />
         <input type="submit" value="Движение" formaction="/move" style="height: 50px" />
-      </div>
-    </form>
-    <form action="/main" method="POST">
-      <div class="noselect">
+      </form>
+      <!-- Форма для возврата в главное меню  -->
+      <form action="/main" method="POST">
         <br />
         <button style="font-size: 20px; padding: 15px 15px">Меню выбора</button>
         <br />
-      </div>
-    </form>
-    <script>
-      //Отправляем значение нажатой кнопки на сервер (esp8266)
-      function toggleCheckbox(x) {
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", "/" + x, true);
-        xhr.send();
-      }
-    </script>
+      </form>
+      <script>
+        //Отправляем значение нажатой кнопки на сервер (esp8266)
+        function toggleCheckbox(x) {
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", "/" + x, true);
+          xhr.send();
+        }
+      </script>
+    </div>
   </body>
 </html>)rawliteral";
 
-
+//Управление (джойстик)
 const char mirror_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -251,6 +238,7 @@ const char mirror_html[] PROGMEM = R"rawliteral(
         margin: 0px auto;
         padding-top: 8px;
       }
+      /* Кнопки лево-право  */
       .buttonMirrorLR {
         padding: 10px 40px;
         font-size: 30px;
@@ -264,15 +252,8 @@ const char mirror_html[] PROGMEM = R"rawliteral(
         cursor: pointer;
         margin-left: 5px;
         margin-right: 5px;
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -khtml-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-        -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
-        -webkit-tap-highlight-color: transparent;
       }
+      /* Кнопки вверх-низ */
       .buttonMirrorUD {
         padding: 30px 20px;
         font-size: 30px;
@@ -286,21 +267,15 @@ const char mirror_html[] PROGMEM = R"rawliteral(
         cursor: pointer;
         margin-left: 5px;
         margin-right: 5px;
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -khtml-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
-        user-select: none;
-        -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
-        -webkit-tap-highlight-color: transparent;
       }
+      /* Стиль при нажатии */
       .buttonMirrorUD:active,
       .buttonMirrorLR:active {
         background-color: #a9a9a9;
         box-shadow: 0 4px #666;
         transform: translateY(2px);
       }
+      /* Отменяем выделения при нажатии */
       .noselect {
         -webkit-touch-callout: none;
         -webkit-user-select: none;
@@ -308,52 +283,49 @@ const char mirror_html[] PROGMEM = R"rawliteral(
         -moz-user-select: none;
         -ms-user-select: none;
         user-select: none;
-        -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
-        -webkit-tap-highlight-color: transparent;
       }
     </style>
   </head>
   <body>
-    <form action="/" method="POST">
-      <div class="noselect">
-        <p>Выбранный режим: <strong>%STATE%</strong></p>
-      </div>
-    </form>
     <div class="noselect">
+      <!-- Форма для выбора режима -->
+      <form action="/" method="POST">
+        <p>Выбранный режим: <strong>%STATE%</strong></p>
+        <br /><br /><br /><br /><br />
+      </form>
+      <!-- Кнопки управления  -->
       <button class="buttonMirrorUD" ontouchstart="toggleCheckboxM('upOn');" ontouchend="toggleCheckboxM('upOff');"><div style="transform: rotate(90deg)">&lt;</div></button><br />
       <button style="position: relative; right: 17px" class="buttonMirrorLR" ontouchstart="toggleCheckboxM('leftOn');" ontouchend="toggleCheckboxM('leftOff');">&lt;</button>
       <button style="position: relative; left: 17px" class="buttonMirrorLR" ontouchstart="toggleCheckboxM('rightOn');" ontouchend="toggleCheckboxM('rightOff');">></button><br />
       <button style="position: relative" class="buttonMirrorUD" ontouchstart="toggleCheckboxM('downOn');" ontouchend="toggleCheckboxM('downOff');"><div style="transform: rotate(90deg)">></div></button><br />
-    </div>
-    <form action="/" method="POST">
-      <div class="noselect">
+      <!-- Форма для выбора шага  -->
+      <form action="/" method="POST">
         <p>Выбранный режим шага: <strong>%STEP%</strong></p>
         <input type="submit" value="    Шаг    " formaction="/step" style="height: 50px" />
         <input type="submit" value="Движение" formaction="/move" style="height: 50px" />
-      </div>
-    </form>
-    <form action="/main" method="POST">
-      <div class="noselect">
+      </form>
+      <!-- Форма для возврата в главное меню  -->
+      <form action="/main" method="POST">
         <br />
         <button style="font-size: 20px; padding: 15px 15px">Меню выбора</button>
         <br />
-      </div>
-    </form>
-    <script>
-      //Отправляем значение нажатой кнопки на сервер (esp8266)
-      function toggleCheckboxM(x) {
-        var xhr = new XMLHttpRequest();
-        xhr.open("GET", "/M" + x, true);
-        xhr.send();
-      }
-    </script>
+      </form>
+      <script>
+        //Отправляем значение нажатой кнопки на сервер (esp8266)
+        function toggleCheckboxM(x) {
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", "/M" + x, true);
+          xhr.send();
+        }
+      </script>
+    </div>
   </body>
 </html>)rawliteral";
 
 //Сообщение об ошибке
 void notFound(AsyncWebServerRequest *request) {
-request->send(404, "text/plain", "Not found");
-} 
+  request->send(404, "text/plain", "Not found");
+}
 
 //Определение текста выбранного режима
 void modeState() {
@@ -365,25 +337,25 @@ void modeState() {
   else if (direction == "backSeg") modestate = "Задний отрезок";
 }
 
-//Заменяет заполнители %STATE%, %FRONT% и %BACK% на нужный текст 
+//Заменяет заполнители %STATE%, %STEP%, %FRONT% и %BACK% на нужный текст
 String processor(const String &var) {
   modeState();
   if (var == "STATE") return String(modestate);
-  if (var == "FRONT"){
-    if(digitalRead(RX)) FRONT = "Сохранено";
+  if (var == "FRONT") {
+    if (digitalRead(RX)) FRONT = "Сохранено";
     else FRONT = "Удалено";
     return String(FRONT);
   }
-  if (var == "BACK"){
-    if(digitalRead(TX)) BACK = "Сохранено";
+  if (var == "BACK") {
+    if (digitalRead(TX)) BACK = "Сохранено";
     else BACK = "Удалено";
     return String(BACK);
   }
-  if(var == "STEP"){
-    if(digitalRead(D0)) STEP = "Шаг";
+  if (var == "STEP") {
+    if (digitalRead(D0)) STEP = "Шаг";
     else STEP = "Движение";
     return String(STEP);
-  } 
+  }
 }
 
 void setup() {
@@ -418,7 +390,7 @@ void setup() {
   });
 
   //Получаем запросы от клиента и конфигурируем пины
-  //Кнопки управления ШД
+  //Кнопки управления ШД (лево-право)
   server.on("/leftFastOn", HTTP_GET, [](AsyncWebServerRequest *request) {
     digitalWrite(D1, 1);
     request->send(200, "text/plain", "ok");
@@ -489,12 +461,12 @@ void setup() {
   //Кнопки выбора шага/движения
   server.on("/step", HTTP_POST, [](AsyncWebServerRequest *request) {
     digitalWrite(D0, 1);
-    if(direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
+    if (direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
     else request->send_P(200, "text/html", keyboard_html, processor);
   });
   server.on("/move", HTTP_POST, [](AsyncWebServerRequest *request) {
     digitalWrite(D0, 0);
-    if(direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
+    if (direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
     else request->send_P(200, "text/html", keyboard_html, processor);
   });
 
@@ -521,8 +493,8 @@ void setup() {
   //Возврат на главную страницу
   server.on("/main", HTTP_POST, [](AsyncWebServerRequest *request) {
     request->send_P(200, "text/html", main_html, processor);
-  });  
-  
+  });
+
   //Устанавливаем нужную страницу в зависимости от выбранного режима
   server.on("/", HTTP_POST, [](AsyncWebServerRequest *request) {
     int params = request->params();
@@ -534,13 +506,13 @@ void setup() {
         }
       }
     }
-  if(direction == "mode1" || direction == "mode2" || direction == "mode3") request->send_P(200, "text/html", keyboard_html, processor);
-  else if(direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
-  else request->send_P(200, "text/html", main_html, processor);
+    if (direction == "mode1" || direction == "mode2" || direction == "mode3") request->send_P(200, "text/html", keyboard_html, processor);
+    else if (direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
+    else request->send_P(200, "text/html", main_html, processor);
   });
 
   server.onNotFound(notFound);  //Если адрес не найден, выводим сообщение об ошибке
-  server.begin();  //Запускаем сервер
+  server.begin();               //Запускаем сервер
 }
 
 void loop() {
