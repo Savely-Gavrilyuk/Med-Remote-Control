@@ -29,7 +29,7 @@ int masFront[5] = {};
 int masBack[5] = {};
 
 //Переменные для хранения шагов
-int step;
+int steps;
 int stepF;
 int stepB;
 int stepzF;
@@ -37,8 +37,7 @@ int stepzB;
 int stepmF;
 int stepmB;
 
-bool flag = 1;
-bool flagMode;
+bool flag = 1;  //Флаг для сброса функции перехода в позицию
 
 void setup() {
   Serial.begin(9600);
@@ -156,40 +155,45 @@ void loop() {
     case frontSeg:
       if (flag) {
         position(masFront);
-        for (byte i = 0; i < 5; i++) {
-          masFront[i] = 0;
-        }
+        clearMas(masFront);
         stepzF = 0;
         stepmF = 0;
-        flag = false;
+        flag = 0;
       }
       break;
     case backSeg:
       if (flag) {
         position(masBack);
-        for (byte i = 0; i < 5; i++) {
-          masBack[i] = 0;
-        }
+        clearMas(masBack);
         stepzB = 0;
         stepmB = 0;
-        flag = false;
+        flag = 0;
       }
       break;
   }
   //Удаление сохраненных положений
-  if (digitalRead(12) == 0) delPos(masFront);
-  if (digitalRead(13) == 0) delPos(masBack);
-}
-
-void delPos(int masDel[]) {
-  for (byte i = 0; i < 5; i++) {
-    masDel[i] = 0;
+  if (digitalRead(12) == 0) {
+    clearMas(masFront);
+    stepF = 0;
+    stepzF = 0;
+    stepmF = 0;
   }
-  stepB = 0;
-  stepzB = 0;
-  stepmB = 0;
+  if (digitalRead(13) == 0) {
+    clearMas(masBack);
+    stepB = 0;
+    stepzB = 0;
+    stepmB = 0;
+  }
 }
 
+//Функция очищения массива
+void clearMas(int masClear[]) {
+  for (byte i = 0; i < 5; i++) {
+    masClear[i] = 0;
+  }
+}
+
+//Функция определения режима
 byte modeVar() {
   byte x = 0;
   for (byte i = 2; i <= 4; i++) {
@@ -197,42 +201,51 @@ byte modeVar() {
     x |= digitalRead(i);
   }
   if (x != mode_sel) {
-    flag = true;
+    flag = 1;
     stepF = 0;
     stepB = 0;
   }
   return x;
 }
 
-void move(byte pin, byte speed) {
-  byte t = 5;
-  if (mode_sel == mode1) t = 25;
-  digitalWrite(pin, 1);
-  delay(t / speed);
-  digitalWrite(pin, 0);
-  delay(t / speed);
-  if (digitalRead(12) == 1) {
+//Функция движения
+void move(byte pinStep, byte speed) {
+  if (mode_sel == mode1) speed = speed / 5;
+  digitalWrite(pinStep, 1);
+  delay(speed);
+  digitalWrite(pinStep, 0);
+  delay(speed);
+  stepCount();
+}
+
+//Функция подсчета шагов
+void stepCount() {
+  if (digitalRead(12)) {
     if (digitalRead(pinDir)) {
       if ((mode_sel == mode4) && (digitalRead(leftFast) == 1)) stepmF++;
+      else if ((mode_sel == mode2) && pinStep == 22) stepzF++;
       else stepF++;
     } else {
       if ((mode_sel == mode4) && (digitalRead(rightFast) == 1)) stepmF--;
+      else if ((mode_sel == mode2) && pinStep == 22) stepzF--;
       else stepF--;
     }
   }
-  if (digitalRead(13) == 1) {
+  if (digitalRead(13)) {
     if (digitalRead(pinDir)) {
       if ((mode_sel == mode4) && (digitalRead(leftFast) == 1)) stepmB++;
+      else if ((mode_sel == mode2) && pinStep == 22) stepzB++;
       else stepB++;
     } else {
       if ((mode_sel == mode4) && (digitalRead(rightFast) == 1)) stepmB--;
+      else if ((mode_sel == mode2) && pinStep == 22) stepzB--;
       else stepB--;
     }
   }
 }
 
+//Функция выбора направления
 void mode() {
-  flagMode = 1;
   if (digitalRead(left) == 1 || digitalRead(leftFast) == 1) {
     digitalWrite(pinEnable, 0);
     digitalWrite(pinDir, 1);
@@ -244,7 +257,7 @@ void mode() {
       move_sel(1);
     }
     while (digitalRead(leftFast) == 1 && digitalRead(Ltrailer) == 1) {
-      move_sel(5);
+      move_sel(1);
     }
     digitalWrite(pinEnable, 1);
     digitalWrite(50, 1);
@@ -259,100 +272,84 @@ void mode() {
       move_sel(1);
     }
     while (digitalRead(rightFast) == 1 && digitalRead(Rtrailer) == 1) {
-      move_sel(5);
+      move_sel(1);
     }
     digitalWrite(pinEnable, 1);
     digitalWrite(50, 1);
   }
 }
 
-void moveZoom(byte speed) {
-  digitalWrite(22, 1);
-  digitalWrite(23, 1);
-  delay(5 / speed);
-  digitalWrite(22, 0);
-  digitalWrite(23, 0);
-  delay(5 / speed);
-  if (digitalRead(12) == 1) {
-    if (digitalRead(pinDir)) {
-      stepzF++;
-      stepF++;
-    } else {
-      stepzF--;
-      stepF--;
-    }
-  }
-  if (digitalRead(13) == 1) {
-    if (digitalRead(pinDir)) {
-      stepzB++;
-      stepB++;
-    } else {
-      stepzB--;
-      stepB--;
-    }
-  }
-}
-
-void move_sel(byte speed)  //функция выбора функции скорости для выбранного режима
-{
+//Функция выбора функции скорости для заданного режима
+void move_sel(byte speed) {
   if (mode_sel == mode1 || mode_sel == mode3) {
-    if (digitalRead(8) == 1 && flagMode == 1) {
-      if (mode_sel == mode1) modeStep(pinStep, 5, 5);
-      else if (mode_sel == mode3) modeStep(pinStep, 5, 30);
-    } else if (digitalRead(8) == 0) move(pinStep, speed);
-  } else if (mode_sel == mode2) {
+    if (digitalRead(8)) {
+      if (mode_sel == mode1) modeStep(pinStep, 5);
+      else if (mode_sel == mode3) modeStep(pinStep, 30);
+    } else move(pinStep, speed);
+  } else if (mode_sel == mode2 && digitalRead(51) == 1) {
     byte n = 0;
-    pinDir = 48;
     pinStep = 22;
     do {
       n++;
-      if (digitalRead(8) == 1 && flagMode == 1) modeStep(pinStep, 5, 20);
-      else if (digitalRead(8) == 0) move(pinStep, speed);
-      pinDir = 52;
+      if (digitalRead(8)) modeStep(pinStep, 20);
+      else move(pinStep, speed);
       pinStep = 23;
     } while (n <= 1);
   } else if (mode_sel == mode4) {
-    if (digitalRead(8) == 1 && flagMode == 1) modeStep(pinStep, 1, 5);
-    else if (digitalRead(8) == 0) move(pinStep, 1);
+    if (digitalRead(8)) modeStep(pinStep, 5);
+    else move(pinStep, 1);
   }
 }
 
-void modeStep(byte pinStep, byte speed, byte n) {
-  byte x = 1;
-  for (byte i = 0; i < n; i++) {
-    move(pinStep, speed);
+//Функция режима шага
+void modeStep(byte pinStep, byte turn) {
+  for (byte i = 0; i < turn; i++) {
+    move(pinStep, 3);
   }
-  if (mode_sel == mode2 && x == 1) {
-    n++;
-    //доделать функцию одновременного шага 2ух шд
-  }
-  flagMode = 0;
   digitalWrite(pinEnable, 1);
+  if (mode_sel == mode2 && pinStep == 23) digitalWrite(50, 1);
 }
 
-void position(int masWay[])  //Функция позиционирования в заданное положение (передний и задний отрезок)
-{
+//Функция позиционирования в заданное положение (передний и задний отрезок)
+void position(int masWay[]) {
   for (byte i = 0; i < 5; i++) {
     int reSteps;
-    pinEnable = masEnable[i];
-    pinDir = masDir[i];
-    pinStep = masStep[i];
-    step = masWay[i];
-    digitalWrite(pinEnable, 0);
+    int revSteps;
+    int focSteps;
+    bool f = 0;
+    steps = masWay[i];
+    revSteps = masWay[1];
+    focSteps = masWay[2];
+    if ((i == 1) && (revSteps < 0) && (focSteps < revSteps)) {
+      movePos(2, revSteps);
+      f = 1;
+    }
+    if (i == 2 && f == 1) {
+      steps = steps - revSteps;
+      f = 0;
+    }
     if (mode_sel == frontSeg) {
       reSteps = masBack[i];
-      masBack[i] = reSteps - step;
+      masBack[i] = reSteps - steps;
     } else if (mode_sel == backSeg) {
       reSteps = masFront[i];
-      masFront[i] = reSteps - step;
+      masFront[i] = reSteps - steps;
     }
-    if (step < 0) {
-      step = step * (-1);
-      digitalWrite(pinDir, 1);
-    } else digitalWrite(pinDir, 0);
-    for (int i = 0; i < step; i++) {
-      move(pinStep, 5);
-    }
-    digitalWrite(pinEnable, 1);
+    movePos(i, steps);
   }
+}
+
+void movePos(byte i, int steps) {
+  pinEnable = masEnable[i];
+  pinDir = masDir[i];
+  pinStep = masStep[i];
+  digitalWrite(pinEnable, 0);
+  if (steps < 0) {
+    steps = steps * (-1);
+    digitalWrite(pinDir, 1);
+  } else digitalWrite(pinDir, 0);
+  for (int i = 0; i < steps; i++) {
+    move(pinStep, 1);
+  }
+  digitalWrite(pinEnable, 1);
 }
