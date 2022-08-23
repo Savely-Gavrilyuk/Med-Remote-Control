@@ -135,6 +135,89 @@ const char main_html[] PROGMEM = R"rawliteral(
   </body>
 </html>)rawliteral";
 
+//Управление диафрагмой
+const char step_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!-- Задаем размеры страницы в соответствии с размером экрана -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Пульт управления</title>
+    <link rel="icon" href="data:," />
+    <style>
+      /* Устанавливаем положение всех элементов */
+      body {
+        font-family: Arial;
+        text-align: center;
+        margin: 0px auto;
+        padding-top: 8px;
+      }
+      /* Кнопки для упраления скоростью ШД */
+      .buttonMove {
+        padding: 25px 25px;
+        font-size: 30px;
+        text-align: absolute;
+        outline: none;
+        color: black;
+        background-color: #dcdcdc;
+        border: none;
+        border-radius: 30px;
+        box-shadow: 0 6px #999;
+        margin-left: 5px;
+        margin-right: 5px;
+      }
+      /* Стиль при нажатии */
+      .buttonMove:active {
+        background-color: #a9a9a9;
+        box-shadow: 0 4px #666;
+        transform: translateY(2px);
+      }
+      /* Отменяем выделения при нажатии */
+      .noselect {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="noselect">
+      <!-- Форма для выбора режима -->
+      <form action="/" method="POST">
+        <p>Выбранный режим: <strong>%STATE%</strong></p>
+        <br /><br /><br /><br /><br /><br /><br /><br /><br /><br />
+      </form>
+      <!-- Кнопки управления -->
+      <button class="buttonMove" ontouchstart="toggleCheckbox('leftOn');" ontouchend="toggleCheckbox('leftOff');">&lt;</button>
+      <button class="buttonMove" ontouchstart="toggleCheckbox('rightOn');" ontouchend="toggleCheckbox('rightOff');">></button>
+      <!-- Форма для выбора шага  -->
+      <form action="/" method="POST">
+        <p>Выбранный режим шага: <strong>%STEP%</strong></p>
+        <input type="submit" value="    Шаг    " formaction="/step" style="height: 50px" />
+        <input type="submit" value="Движение" formaction="/move" style="height: 50px" />
+      </form>
+      <!-- Форма для возврата в главное меню  -->
+      <form action="/" method="GET">
+        <br />
+        <button style="font-size: 20px; padding: 15px 15px">Меню выбора</button>
+        <br />
+      </form>
+      <script>
+        //Отправляем значение нажатой кнопки на сервер (esp8266)
+        function toggleCheckbox(x) {
+          var xhr = new XMLHttpRequest();
+          xhr.open("GET", "/" + x, true);
+          xhr.send();
+        }
+      </script>
+    </div>
+  </body>
+</html>)rawliteral";
+
 //Управление (лево-право)
 const char keyboard_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
@@ -194,8 +277,8 @@ const char keyboard_html[] PROGMEM = R"rawliteral(
       <!-- Кнопки управления -->
       <button class="buttonMove" ontouchstart="toggleCheckbox('leftFastOn');" ontouchend="toggleCheckbox('leftFastOff');">&lt;&lt;</button>
       <button class="buttonMove" ontouchstart="toggleCheckbox('leftOn');" ontouchend="toggleCheckbox('leftOff');">&lt;</button>
-      <button class="buttonMove" ontouchstart="toggleCheckbox('rightFastOn');" ontouchend="toggleCheckbox('rightFastOff');">></button>
-      <button class="buttonMove" ontouchstart="toggleCheckbox('rightOn');" ontouchend="toggleCheckbox('rightOff');">>></button>
+      <button class="buttonMove" ontouchstart="toggleCheckbox('rightOn');" ontouchend="toggleCheckbox('rightOff');">></button>
+      <button class="buttonMove" ontouchstart="toggleCheckbox('rightFastOn');" ontouchend="toggleCheckbox('rightFastOff');">>></button>
       <!-- Форма для выбора шага  -->
       <form action="/" method="POST">
         <p>Выбранный режим шага: <strong>%STEP%</strong></p>
@@ -203,7 +286,7 @@ const char keyboard_html[] PROGMEM = R"rawliteral(
         <input type="submit" value="Движение" formaction="/move" style="height: 50px" />
       </form>
       <!-- Форма для возврата в главное меню  -->
-      <form action="/main" method="POST">
+      <form action="/" method="GET">
         <br />
         <button style="font-size: 20px; padding: 15px 15px">Меню выбора</button>
         <br />
@@ -305,7 +388,7 @@ const char mirror_html[] PROGMEM = R"rawliteral(
         <input type="submit" value="Движение" formaction="/move" style="height: 50px" />
       </form>
       <!-- Форма для возврата в главное меню  -->
-      <form action="/main" method="POST">
+      <form action="/" method="GET">
         <br />
         <button style="font-size: 20px; padding: 15px 15px">Меню выбора</button>
         <br />
@@ -408,19 +491,19 @@ void setup() {
     request->send(200, "text/plain", "ok");
   });
   server.on("/rightOn", HTTP_GET, [](AsyncWebServerRequest *request) {
-    digitalWrite(D4, 1);
-    request->send(200, "text/plain", "ok");
-  });
-  server.on("/rightOff", HTTP_GET, [](AsyncWebServerRequest *request) {
-    digitalWrite(D4, 0);
-    request->send(200, "text/plain", "ok");
-  });
-  server.on("/rightFastOn", HTTP_GET, [](AsyncWebServerRequest *request) {
     digitalWrite(D3, 1);
     request->send(200, "text/plain", "ok");
   });
-  server.on("/rightFastOff", HTTP_GET, [](AsyncWebServerRequest *request) {
+  server.on("/rightOff", HTTP_GET, [](AsyncWebServerRequest *request) {
     digitalWrite(D3, 0);
+    request->send(200, "text/plain", "ok");
+  });
+  server.on("/rightFastOn", HTTP_GET, [](AsyncWebServerRequest *request) {
+    digitalWrite(D4, 1);
+    request->send(200, "text/plain", "ok");
+  });
+  server.on("/rightFastOff", HTTP_GET, [](AsyncWebServerRequest *request) {
+    digitalWrite(D4, 0);
     request->send(200, "text/plain", "ok");
   });
 
@@ -462,11 +545,12 @@ void setup() {
   server.on("/step", HTTP_POST, [](AsyncWebServerRequest *request) {
     digitalWrite(D0, 1);
     if (direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
-    else request->send_P(200, "text/html", keyboard_html, processor);
+    else request->send_P(200, "text/html", step_html, processor);
   });
   server.on("/move", HTTP_POST, [](AsyncWebServerRequest *request) {
     digitalWrite(D0, 0);
     if (direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
+    else if (direction == "mode1") request->send_P(200, "text/html", step_html, processor);
     else request->send_P(200, "text/html", keyboard_html, processor);
   });
 
@@ -490,11 +574,6 @@ void setup() {
     request->send_P(200, "text/html", main_html, processor);
   });
 
-  //Возврат на главную страницу
-  server.on("/main", HTTP_POST, [](AsyncWebServerRequest *request) {
-    request->send_P(200, "text/html", main_html, processor);
-  });
-
   //Устанавливаем нужную страницу в зависимости от выбранного режима
   server.on("/", HTTP_POST, [](AsyncWebServerRequest *request) {
     int params = request->params();
@@ -506,7 +585,9 @@ void setup() {
         }
       }
     }
-    if (direction == "mode1" || direction == "mode2" || direction == "mode3") request->send_P(200, "text/html", keyboard_html, processor);
+    if (direction == "mode1") request->send_P(200, "text/html", step_html, processor);
+    else if ((direction == "mode2" || direction == "mode3") && (digitalRead(D0) == 1)) request->send_P(200, "text/html", step_html, processor);
+    else if (direction == "mode2" || direction == "mode3") request->send_P(200, "text/html", keyboard_html, processor);
     else if (direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
     else request->send_P(200, "text/html", main_html, processor);
   });

@@ -36,8 +36,10 @@ int stepzF;
 int stepzB;
 int stepmF;
 int stepmB;
+int revSteps;
 
-bool flag = 1;  //Флаг для сброса функции перехода в позицию
+bool flagPos = 1;      //Флаг для сброса функции перехода в позицию
+bool flagMoveFoc = 0;  //Флаг для передвижения фокуса
 
 void setup() {
   Serial.begin(9600);
@@ -153,21 +155,21 @@ void loop() {
       }
       break;
     case frontSeg:
-      if (flag) {
+      if (flagPos) {
         position(masFront);
         clearMas(masFront);
         stepzF = 0;
         stepmF = 0;
-        flag = 0;
+        flagPos = 0;
       }
       break;
     case backSeg:
-      if (flag) {
+      if (flagPos) {
         position(masBack);
         clearMas(masBack);
         stepzB = 0;
         stepmB = 0;
-        flag = 0;
+        flagPos = 0;
       }
       break;
   }
@@ -201,7 +203,7 @@ byte modeVar() {
     x |= digitalRead(i);
   }
   if (x != mode_sel) {
-    flag = 1;
+    flagPos = 1;
     stepF = 0;
     stepB = 0;
   }
@@ -210,11 +212,11 @@ byte modeVar() {
 
 //Функция движения
 void move(byte pinStep, byte speed) {
-  if (mode_sel == mode1) speed = speed / 5;
+  if (mode_sel == mode1) speed = speed * 2;
   digitalWrite(pinStep, 1);
-  delay(speed);
+  delayMicroseconds(500 * speed);
   digitalWrite(pinStep, 0);
-  delay(speed);
+  delayMicroseconds(500 * speed);
   stepCount();
 }
 
@@ -254,7 +256,7 @@ void mode() {
       digitalWrite(52, 1);
     }
     while (digitalRead(left) == 1 && digitalRead(Ltrailer) == 1) {
-      move_sel(1);
+      move_sel(4);
     }
     while (digitalRead(leftFast) == 1 && digitalRead(Ltrailer) == 1) {
       move_sel(1);
@@ -269,7 +271,7 @@ void mode() {
       digitalWrite(52, 0);
     }
     while (digitalRead(right) == 1 && digitalRead(Rtrailer) == 1) {
-      move_sel(1);
+      move_sel(4);
     }
     while (digitalRead(rightFast) == 1 && digitalRead(Rtrailer) == 1) {
       move_sel(1);
@@ -285,19 +287,19 @@ void move_sel(byte speed) {
     if (digitalRead(8)) {
       if (mode_sel == mode1) modeStep(pinStep, 5);
       else if (mode_sel == mode3) modeStep(pinStep, 30);
-    } else move(pinStep, speed);
+    } else move(pinStep, speed * 2);
   } else if (mode_sel == mode2 && digitalRead(51) == 1) {
     byte n = 0;
     pinStep = 22;
     do {
       n++;
-      if (digitalRead(8)) modeStep(pinStep, 20);
-      else move(pinStep, speed);
+      if (digitalRead(8)) modeStep(pinStep, 30);
+      else move(pinStep,  speed *  1);
       pinStep = 23;
     } while (n <= 1);
   } else if (mode_sel == mode4) {
     if (digitalRead(8)) modeStep(pinStep, 5);
-    else move(pinStep, 1);
+    else move(pinStep, 10);
   }
 }
 
@@ -312,21 +314,20 @@ void modeStep(byte pinStep, byte turn) {
 
 //Функция позиционирования в заданное положение (передний и задний отрезок)
 void position(int masWay[]) {
+  int reSteps;
+  int focSteps;
   for (byte i = 0; i < 5; i++) {
-    int reSteps;
-    int revSteps;
-    int focSteps;
-    bool f = 0;
     steps = masWay[i];
     revSteps = masWay[1];
     focSteps = masWay[2];
     if ((i == 1) && (revSteps < 0) && (focSteps < revSteps)) {
+      flagMoveFoc = 1;
       movePos(2, revSteps);
-      f = 1;
+      //masWay[1] = revSteps;
     }
-    if (i == 2 && f == 1) {
+    if (i == 2 && flagMoveFoc == 1) {
       steps = steps - revSteps;
-      f = 0;
+      flagMoveFoc = 0;
     }
     if (mode_sel == frontSeg) {
       reSteps = masBack[i];
@@ -337,8 +338,10 @@ void position(int masWay[]) {
     }
     movePos(i, steps);
   }
+  steps = 0;
 }
 
+//Функия движения до сохраненной позиции
 void movePos(byte i, int steps) {
   pinEnable = masEnable[i];
   pinDir = masDir[i];
@@ -348,8 +351,14 @@ void movePos(byte i, int steps) {
     steps = steps * (-1);
     digitalWrite(pinDir, 1);
   } else digitalWrite(pinDir, 0);
-  for (int i = 0; i < steps; i++) {
-    move(pinStep, 1);
+  for (int j = 0; j < steps; j++) {
+    /*    
+    if(flagMoveFoc){      
+      if(digitalRead(51)) move(pinStep, 1);
+      else revSteps = revSteps - j;
+    }
+    else move(pinStep, 1);*/
+    move(pinStep, 2);
   }
   digitalWrite(pinEnable, 1);
 }
