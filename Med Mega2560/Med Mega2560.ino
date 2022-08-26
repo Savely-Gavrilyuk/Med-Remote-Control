@@ -1,3 +1,5 @@
+#include <EEPROM.h>
+
 #define left 10
 #define right 11
 #define leftFast 5
@@ -9,7 +11,7 @@ const byte mode2 = B010;
 const byte mode3 = B011;
 const byte mode4 = B100;
 const byte frontSeg = B101;
-const byte backSeg = B110;
+const byte backSeg  = B110;
 
 byte mode_sel;
 byte pinEnable;
@@ -40,6 +42,8 @@ int revSteps;
 
 bool flagPos = 1;      //Флаг для сброса функции перехода в позицию
 bool flagMoveFoc = 0;  //Флаг для передвижения фокуса
+bool flagStopFoc = 0;  //Флаг для остановки фокуса
+
 
 void setup() {
   Serial.begin(9600);
@@ -75,6 +79,8 @@ void setup() {
   pinMode(22, OUTPUT);
   pinMode(32, OUTPUT);
   pinMode(17, OUTPUT);
+  //EEPROM.get(0, masFront);
+  //EEPROM.get(10, masBack);
 }
 
 void loop() {
@@ -101,6 +107,8 @@ void loop() {
       masBack[4] = stepmB;
       break;
   }
+  //EEPROM.put(0, masFront);
+  //EEPROM.put(10, masBack);
   mode_sel = modeVar();
   //Выбор режима
   switch (mode_sel) {
@@ -294,7 +302,7 @@ void move_sel(byte speed) {
     do {
       n++;
       if (digitalRead(8)) modeStep(pinStep, 30);
-      else move(pinStep,  speed *  1);
+      else move(pinStep, speed * 1);
       pinStep = 23;
     } while (n <= 1);
   } else if (mode_sel == mode4) {
@@ -319,15 +327,16 @@ void position(int masWay[]) {
   for (byte i = 0; i < 5; i++) {
     steps = masWay[i];
     revSteps = masWay[1];
-    focSteps = masWay[2];
-    if ((i == 1) && (revSteps < 0) && (focSteps < revSteps)) {
+    if ((i == 1) && (revSteps < 0)) {
       flagMoveFoc = 1;
       movePos(2, revSteps);
-      //masWay[1] = revSteps;
-    }
-    if (i == 2 && flagMoveFoc == 1) {
-      steps = steps - revSteps;
+      masWay[1] = revSteps;
       flagMoveFoc = 0;
+      flagStopFoc = 1;
+    }
+    if (i == 2 && flagStopFoc == 1) {
+      steps = steps - revSteps;
+      flagStopFoc = 0;
     }
     if (mode_sel == frontSeg) {
       reSteps = masBack[i];
@@ -352,13 +361,14 @@ void movePos(byte i, int steps) {
     digitalWrite(pinDir, 1);
   } else digitalWrite(pinDir, 0);
   for (int j = 0; j < steps; j++) {
-    /*    
-    if(flagMoveFoc){      
-      if(digitalRead(51)) move(pinStep, 1);
-      else revSteps = revSteps - j;
-    }
-    else move(pinStep, 1);*/
-    move(pinStep, 2);
+    if (flagMoveFoc) {
+      if (digitalRead(51)) move(pinStep, 2);
+      else {
+        revSteps = j * (-1);
+        steps = 0;
+      }
+    } 
+    else move(pinStep, 2);
   }
   digitalWrite(pinEnable, 1);
 }

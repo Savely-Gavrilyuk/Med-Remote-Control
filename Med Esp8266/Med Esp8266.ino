@@ -585,11 +585,16 @@ void setup() {
         }
       }
     }
-    if (direction == "mode1") request->send_P(200, "text/html", step_html, processor);
-    else if ((direction == "mode2" || direction == "mode3") && (digitalRead(D0) == 1)) request->send_P(200, "text/html", step_html, processor);
-    else if (direction == "mode2" || direction == "mode3") request->send_P(200, "text/html", keyboard_html, processor);
-    else if (direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
-    else request->send_P(200, "text/html", main_html, processor);
+    if (direction == "mode1") {
+      digitalWrite(D0, 0);
+      request->send_P(200, "text/html", step_html, processor);
+    } else if (direction == "mode2" || direction == "mode3") {
+      digitalWrite(D0, 0);
+      request->send_P(200, "text/html", keyboard_html, processor);
+    } else if (direction == "mode4") {
+      digitalWrite(D0, 0);
+      request->send_P(200, "text/html", mirror_html, processor);
+    } else request->send_P(200, "text/html", main_html, processor);
   });
 
   server.onNotFound(notFound);  //Если адрес не найден, выводим сообщение об ошибке
