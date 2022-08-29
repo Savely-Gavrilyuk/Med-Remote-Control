@@ -11,7 +11,7 @@ const byte mode2 = B010;
 const byte mode3 = B011;
 const byte mode4 = B100;
 const byte frontSeg = B101;
-const byte backSeg  = B110;
+const byte backSeg = B110;
 
 byte mode_sel;
 byte pinEnable;
@@ -79,8 +79,16 @@ void setup() {
   pinMode(22, OUTPUT);
   pinMode(32, OUTPUT);
   pinMode(17, OUTPUT);
-  //EEPROM.get(0, masFront);
-  //EEPROM.get(10, masBack);
+  EEPROM.get(0, masFront);
+  EEPROM.get(10, masBack);
+  for (int i = 0; i < 5; i++) {
+    Serial.print(masFront[i]);
+  }
+  Serial.println(0);
+  for (int i = 0; i < 5; i++) {
+    Serial.print(masBack[i]);
+  }
+  Serial.println(0);
 }
 
 void loop() {
@@ -107,8 +115,20 @@ void loop() {
       masBack[4] = stepmB;
       break;
   }
-  //EEPROM.put(0, masFront);
-  //EEPROM.put(10, masBack);
+  //Записываем массивы в память
+  if (digitalRead(9) == 1) {
+    EEPROM.put(0, masFront);
+    EEPROM.put(10, masBack);
+    for (int i = 0; i < 5; i++) {
+      Serial.print(masFront[i]);
+    }
+    Serial.println(0);
+    for (int i = 0; i < 5; i++) {
+      Serial.print(masBack[i]);
+    }
+    Serial.println(0);
+    while (1) {}
+  }
   mode_sel = modeVar();
   //Выбор режима
   switch (mode_sel) {
@@ -282,7 +302,8 @@ void mode() {
       move_sel(4);
     }
     while (digitalRead(rightFast) == 1 && digitalRead(Rtrailer) == 1) {
-      move_sel(1);
+      if (mode_sel == mode2 && digitalRead(51) == 1) move_sel(1);
+      else if (!(mode_sel == mode2)) move_sel(1);
     }
     digitalWrite(pinEnable, 1);
     digitalWrite(50, 1);
@@ -296,13 +317,13 @@ void move_sel(byte speed) {
       if (mode_sel == mode1) modeStep(pinStep, 5);
       else if (mode_sel == mode3) modeStep(pinStep, 30);
     } else move(pinStep, speed * 2);
-  } else if (mode_sel == mode2 && digitalRead(51) == 1) {
+  } else if (mode_sel == mode2) {
     byte n = 0;
     pinStep = 22;
     do {
       n++;
       if (digitalRead(8)) modeStep(pinStep, 30);
-      else move(pinStep, speed * 1);
+      else move(pinStep, speed);
       pinStep = 23;
     } while (n <= 1);
   } else if (mode_sel == mode4) {
@@ -334,16 +355,18 @@ void position(int masWay[]) {
       flagMoveFoc = 0;
       flagStopFoc = 1;
     }
-    if (i == 2 && flagStopFoc == 1) {
-      steps = steps - revSteps;
-      flagStopFoc = 0;
-    }
     if (mode_sel == frontSeg) {
       reSteps = masBack[i];
       masBack[i] = reSteps - steps;
+      //Serial.println(masBack[i]);
     } else if (mode_sel == backSeg) {
       reSteps = masFront[i];
       masFront[i] = reSteps - steps;
+      //Serial.println(masFront[i]);
+    }
+    if (i == 2 && flagStopFoc == 1) {
+      steps = steps - revSteps;
+      flagStopFoc = 0;
     }
     movePos(i, steps);
   }
@@ -367,8 +390,7 @@ void movePos(byte i, int steps) {
         revSteps = j * (-1);
         steps = 0;
       }
-    } 
-    else move(pinStep, 2);
+    } else move(pinStep, 2);
   }
   digitalWrite(pinEnable, 1);
 }

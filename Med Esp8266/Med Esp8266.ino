@@ -1,3 +1,4 @@
+#include <EEPROM.h>
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
@@ -13,6 +14,10 @@ String modestate;
 String FRONT;
 String BACK;
 String STEP;
+
+bool modeF = 0;  //Переменная для хранения состояния контакта положения переднего отрезка
+bool modeB = 0;  //Переменная для хранения состояния контакта положения заднего отрезка
+const char key = 'k'; //Ключ для сохранения в сетапе
 
 AsyncWebServer server(80);  //Создаем сервер на порту 80
 
@@ -42,8 +47,6 @@ const char main_html[] PROGMEM = R"rawliteral(
         -moz-user-select: none;
         -ms-user-select: none;
         user-select: none;
-        -webkit-tap-highlight-color: rgba(255, 255, 255, 0);
-        -webkit-tap-highlight-color: transparent;
       }
     </style>
   </head>
@@ -58,9 +61,9 @@ const char main_html[] PROGMEM = R"rawliteral(
             display: block;
             position: relative;
             padding-left: 35px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
             cursor: pointer;
-            font-size: 22px;
+            font-size: 21px;
           }
           /* Скрываем переключатели по умолчанию */
           .container input {
@@ -72,9 +75,9 @@ const char main_html[] PROGMEM = R"rawliteral(
           .checkmark {
             position: absolute;
             top: 0;
-            left: 70px;
-            height: 25px;
-            width: 25px;
+            left: 60px;
+            height: 20px;
+            width: 20px;
             background-color: #eee;
             border-radius: 50%;
           }
@@ -117,19 +120,24 @@ const char main_html[] PROGMEM = R"rawliteral(
         <!-- Отправка формы на сервер -->
         <input type="submit" value="Выбрать" style="height: 50px" />
       </form>
-      <br />
       <!-- Форма для настройки положений (передний и задний отрезки) -->
       <form action="/" method="POST">
         <p>Статус переднего отрезка: <strong>%FRONT%</strong></p>
         <span>Передний отрезок: </span>
         <input type="submit" value="Сохранить" formaction="/frontSegment" style="height: 50px" />
         <input type="submit" value="Удалить" formaction="/DfrontSegment" style="height: 50px" />
-        <br /><br />
+        <br />
         <p>Статус заднего отрезка: <strong>%BACK%</strong></p>
         <span>Задний отрезок: </span>
         <input type="submit" value="Сохранить" formaction="/backSegment" style="height: 50px" />
         <input type="submit" value="Удалить" formaction="/DbackSegment" style="height: 50px" />
-        <br /><br />
+        <br />
+      </form>
+      <!-- Форма для выключения -->
+      <form action="/off" method="GET">
+        <br />
+        <button style="font-size: 20px; padding: 15px 15px">Выключить</button>
+        <br />
       </form>
     </div>
   </body>
@@ -405,6 +413,22 @@ const char mirror_html[] PROGMEM = R"rawliteral(
   </body>
 </html>)rawliteral";
 
+//Страница выключения
+const char off_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!-- Задаем размеры страницы в соответствии с размером экрана -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Пульт управления</title>
+    <link rel="icon" href="data:," />
+  </head>
+  <body>
+    <p style="position: absolute; width: 100%; top: 30%; text-align: center"><strong>Выключите питание!</strong></p>
+  </body>
+</html>)rawliteral";
+
 //Сообщение об ошибке
 void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
@@ -442,12 +466,18 @@ String processor(const String &var) {
 }
 
 void setup() {
+  EEPROM.begin(3);  //Выделяем память для хранения переменных состояня контактов положений
+  //Проверяем первый ли запуск, если первый, то задаем  начальные значения контактов
+  if (EEPROM.read(0) != key) {
+    EEPROM.put(1, modeF);
+    EEPROM.put(2, modeB);
+    EEPROM.write(0, key);
+  } else {
+    EEPROM.get(1, modeF);  //Считываем значения переменных из памяти
+    EEPROM.get(2, modeB);
+  }
   WiFi.mode(WIFI_AP);           //Устанавливаем режим точки доступа
   WiFi.softAP(ssid, password);  //Конфигурируем точку доступа
-  pinMode(RX, OUTPUT);
-  digitalWrite(RX, 0);
-  pinMode(TX, OUTPUT);
-  digitalWrite(TX, 0);
   pinMode(D0, OUTPUT);
   digitalWrite(D0, 0);
   pinMode(D1, OUTPUT);
@@ -466,6 +496,10 @@ void setup() {
   digitalWrite(D7, 0);
   pinMode(D8, OUTPUT);
   digitalWrite(D8, 0);
+  pinMode(RX, OUTPUT);
+  digitalWrite(RX, modeF);
+  pinMode(TX, OUTPUT);
+  digitalWrite(TX, modeB);
 
   //Главная страница
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -556,22 +590,40 @@ void setup() {
 
   //Кнопки для сохранения положений
   server.on("/frontSegment", HTTP_POST, [](AsyncWebServerRequest *request) {
-    digitalWrite(RX, 1);
+    modeF = 1;
+    digitalWrite(RX, modeF);
+    EEPROM.put(1, modeF);
+    EEPROM.commit();
     request->send_P(200, "text/html", main_html, processor);
   });
   server.on("/backSegment", HTTP_POST, [](AsyncWebServerRequest *request) {
-    digitalWrite(TX, 1);
+    modeB = 1;
+    digitalWrite(TX, modeB);
+    EEPROM.put(2, modeB);
+    EEPROM.commit();
     request->send_P(200, "text/html", main_html, processor);
   });
 
   //Кнопки для удаления сохраненных положений
   server.on("/DfrontSegment", HTTP_POST, [](AsyncWebServerRequest *request) {
-    digitalWrite(RX, 0);
+    modeF = 0;
+    digitalWrite(RX, modeF);
+    EEPROM.put(1, modeF);
+    EEPROM.commit();
     request->send_P(200, "text/html", main_html, processor);
   });
   server.on("/DbackSegment", HTTP_POST, [](AsyncWebServerRequest *request) {
-    digitalWrite(TX, 0);
+    modeB = 0;
+    digitalWrite(TX, modeB);
+    EEPROM.put(2, modeB);
+    EEPROM.commit();
     request->send_P(200, "text/html", main_html, processor);
+  });
+
+  //Кнопка для выключения
+  server.on("/off", HTTP_GET, [](AsyncWebServerRequest *request) {
+    digitalWrite(D8, 1);
+    request->send_P(200, "text/html", off_html);
   });
 
   //Устанавливаем нужную страницу в зависимости от выбранного режима
