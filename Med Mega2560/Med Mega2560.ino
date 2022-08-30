@@ -81,14 +81,8 @@ void setup() {
   pinMode(17, OUTPUT);
   EEPROM.get(0, masFront);
   EEPROM.get(10, masBack);
-  for (int i = 0; i < 5; i++) {
-    Serial.print(masFront[i]);
-  }
-  Serial.println(0);
-  for (int i = 0; i < 5; i++) {
-    Serial.print(masBack[i]);
-  }
-  Serial.println(0);
+  position(masFront);
+  clearMas(masFront);
 }
 
 void loop() {
@@ -145,6 +139,8 @@ void loop() {
     case mode2:
       stepF = masFront[2];
       stepB = masBack[2];
+      stepzF = masFront[1];
+      stepzB = masBack[1];
       pinEnable = 49;
       pinDir = 48;
       pinStep = 22;
@@ -220,6 +216,7 @@ void loop() {
 void clearMas(int masClear[]) {
   for (byte i = 0; i < 5; i++) {
     masClear[i] = 0;
+    //Serial.print(masFront[i]);
   }
 }
 
@@ -349,9 +346,11 @@ void position(int masWay[]) {
     steps = masWay[i];
     revSteps = masWay[1];
     if ((i == 1) && (revSteps < 0)) {
+      //Serial.println(masWay[i]);
+      //Serial.println(masWay[2]);
       flagMoveFoc = 1;
       movePos(2, revSteps);
-      masWay[1] = revSteps;
+      masWay[1] = revSteps;  //Сохраняем значение пройденных шагов
       flagMoveFoc = 0;
       flagStopFoc = 1;
     }
@@ -362,7 +361,7 @@ void position(int masWay[]) {
     } else if (mode_sel == backSeg) {
       reSteps = masFront[i];
       masFront[i] = reSteps - steps;
-      //Serial.println(masFront[i]);
+      // Serial.println(masFront[i]);
     }
     if (i == 2 && flagStopFoc == 1) {
       steps = steps - revSteps;
