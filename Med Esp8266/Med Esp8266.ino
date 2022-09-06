@@ -6,18 +6,20 @@
 //Ввод данных сети
 #define ssid "Remote Control"
 #define password "123456789"
-#define PARAM_INPUT_1 "direction"
 
-//Строки для управления выбором режима
+//Параметр для радио кнопок
+#define PARAM_INPUT_1 "direction"
 String direction;
+
+//Строки для отоброжения выбранного режима на странице
 String modestate;
 String FRONT;
 String BACK;
 String STEP;
 
-bool modeF = 0;  //Переменная для хранения состояния контакта положения переднего отрезка
-bool modeB = 0;  //Переменная для хранения состояния контакта положения заднего отрезка
-const char key = 'k'; //Ключ для сохранения в сетапе
+bool modeF = 0;        //Переменная для хранения состояния контакта положения переднего отрезка
+bool modeB = 0;        //Переменная для хранения состояния контакта положения заднего отрезка
+const char key = 'k';  //Ключ для определения .....
 
 AsyncWebServer server(80);  //Создаем сервер на порту 80
 
@@ -143,7 +145,7 @@ const char main_html[] PROGMEM = R"rawliteral(
   </body>
 </html>)rawliteral";
 
-//Управление диафрагмой
+//Управление (шаг)
 const char step_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -311,7 +313,7 @@ const char keyboard_html[] PROGMEM = R"rawliteral(
   </body>
 </html>)rawliteral";
 
-//Управление (джойстик)
+//Управление зеркалом
 const char mirror_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -434,7 +436,7 @@ void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
 
-//Определение текста выбранного режима
+//Определение текста выбранного режима (радио кнопки)
 void modeState() {
   if (direction == "mode1") modestate = "Диафрагма";
   else if (direction == "mode2") modestate = "ZOOM";
@@ -444,18 +446,18 @@ void modeState() {
   else if (direction == "backSeg") modestate = "Задний отрезок";
 }
 
-//Заменяет заполнители %STATE%, %STEP%, %FRONT% и %BACK% на нужный текст
+//Заменяет заполнители %STATE%, %STEP%, %FRONT% и %BACK% на нужный текст на странице в зависимости от выбранного режима
 String processor(const String &var) {
   modeState();
   if (var == "STATE") return String(modestate);
   if (var == "FRONT") {
-    if (digitalRead(RX)) FRONT = "Сохранено";
-    else FRONT = "Удалено";
+    if (digitalRead(RX)) FRONT = "Сохранен";
+    else FRONT = "Удален";
     return String(FRONT);
   }
   if (var == "BACK") {
-    if (digitalRead(TX)) BACK = "Сохранено";
-    else BACK = "Удалено";
+    if (digitalRead(TX)) BACK = "Сохранен";
+    else BACK = "Удален";
     return String(BACK);
   }
   if (var == "STEP") {
@@ -466,18 +468,21 @@ String processor(const String &var) {
 }
 
 void setup() {
-  EEPROM.begin(3);  //Выделяем память для хранения переменных состояня контактов положений
-  //Проверяем первый ли запуск, если первый, то задаем  начальные значения контактов
-  if (EEPROM.read(0) != key) {
+  EEPROM.begin(3);            //Выделяем память для хранения переменных состояня контактов положений
+  if (EEPROM.read(0) != key)  //Проверяем первый ли запуск, если первый, то задаем  начальные значения контактов
+  {
     EEPROM.put(1, modeF);
     EEPROM.put(2, modeB);
     EEPROM.write(0, key);
-  } else {
-    EEPROM.get(1, modeF);  //Считываем значения переменных из памяти
+  } 
+  else                        //Если не первый, то считываем значения переменных из памяти
+  {
+    EEPROM.get(1, modeF);
     EEPROM.get(2, modeB);
   }
   WiFi.mode(WIFI_AP);           //Устанавливаем режим точки доступа
   WiFi.softAP(ssid, password);  //Конфигурируем точку доступа
+  //Конфигурируем пины на выход
   pinMode(D0, OUTPUT);
   digitalWrite(D0, 0);
   pinMode(D1, OUTPUT);
@@ -497,6 +502,7 @@ void setup() {
   pinMode(D8, OUTPUT);
   digitalWrite(D8, 0);
   pinMode(RX, OUTPUT);
+  //Устанавливаем сохраненное состояние контактов
   digitalWrite(RX, modeF);
   pinMode(TX, OUTPUT);
   digitalWrite(TX, modeB);
@@ -506,7 +512,7 @@ void setup() {
     request->send_P(200, "text/html", main_html, processor);
   });
 
-  //Получаем запросы от клиента и конфигурируем пины
+  //Получаем запросы от клиента (ПДУ) и конфигурируем пины
   //Кнопки управления ШД (лево-право)
   server.on("/leftFastOn", HTTP_GET, [](AsyncWebServerRequest *request) {
     digitalWrite(D1, 1);
@@ -541,7 +547,7 @@ void setup() {
     request->send(200, "text/plain", "ok");
   });
 
-  //Кнопки управления ШД (джойстик)
+  //Кнопки управления ШД (зеркало)
   server.on("/MupOn", HTTP_GET, [](AsyncWebServerRequest *request) {
     digitalWrite(D1, 1);
     request->send(200, "text/plain", "ok");
@@ -575,7 +581,7 @@ void setup() {
     request->send(200, "text/plain", "ok");
   });
 
-  //Кнопки выбора шага/движения
+  //Кнопки выбора шаг/движение
   server.on("/step", HTTP_POST, [](AsyncWebServerRequest *request) {
     digitalWrite(D0, 1);
     if (direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
@@ -627,26 +633,36 @@ void setup() {
   });
 
   //Устанавливаем нужную страницу в зависимости от выбранного режима
-  server.on("/", HTTP_POST, [](AsyncWebServerRequest *request) {
+  server.on("/", HTTP_POST, [](AsyncWebServerRequest *request) 
+  {
     int params = request->params();
-    for (int i = 0; i < params; i++) {
+    for (int i = 0; i < params; i++) 
+    {
       AsyncWebParameter *p = request->getParam(i);
-      if (p->isPost()) {
-        if (p->name() == PARAM_INPUT_1) {
+      if (p->isPost()) 
+      {
+        if (p->name() == PARAM_INPUT_1) 
+        {
           direction = p->value().c_str();
         }
       }
     }
-    if (direction == "mode1") {
+    if (direction == "mode1") 
+    {
       digitalWrite(D0, 0);
       request->send_P(200, "text/html", step_html, processor);
-    } else if (direction == "mode2" || direction == "mode3") {
+    }
+    else if (direction == "mode2" || direction == "mode3") 
+    {
       digitalWrite(D0, 0);
       request->send_P(200, "text/html", keyboard_html, processor);
-    } else if (direction == "mode4") {
+    } 
+    else if (direction == "mode4") 
+    {
       digitalWrite(D0, 0);
       request->send_P(200, "text/html", mirror_html, processor);
-    } else request->send_P(200, "text/html", main_html, processor);
+    } 
+    else request->send_P(200, "text/html", main_html, processor);
   });
 
   server.onNotFound(notFound);  //Если адрес не найден, выводим сообщение об ошибке
