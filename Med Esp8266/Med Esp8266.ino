@@ -1,29 +1,30 @@
-#include <EEPROM.h>
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
+#include <EEPROM.h>             //Библиотека для работы с энерконезависимой памятью
+#include <ESP8266WiFi.h>        //Библиотека для работы с Wi-Fi модулем
+#include <ESPAsyncTCP.h>        //Библиотеки для создания и настройки сервера
 #include <ESPAsyncWebServer.h>
 
 //Ввод данных сети
-#define ssid "Remote Control"
-#define password "123456789"
+#define ssid "Remote Control"  //Имя сети
+#define password "123456789"   //Пароль
 
 //Параметр для радио кнопок
 #define PARAM_INPUT_1 "direction"
 String direction;
 
 //Строки для отоброжения выбранного режима на странице
-String modestate;
-String FRONT;
-String BACK;
-String STEP;
+String modestate;  //Выбранный режим
+String FRONT;      //Передний отрезок
+String BACK;       //Задний отрезок
+String STEP;       //Режим движения
 
 bool modeF = 0;        //Переменная для хранения состояния контакта положения переднего отрезка
 bool modeB = 0;        //Переменная для хранения состояния контакта положения заднего отрезка
-const char key = 'k';  //Ключ для определения .....
+const char key = 'k';  //Ключ для определения первого сохранения положений
 
 AsyncWebServer server(80);  //Создаем сервер на порту 80
 
-//Меню выбора
+//Веб-интерфейс для смартфона
+//Страница сеню выбора 
 const char main_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -119,7 +120,7 @@ const char main_html[] PROGMEM = R"rawliteral(
           <input type="radio" name="direction" value="backSeg" />
           <span class="checkmark"></span>
         </label>
-        <!-- Отправка формы на сервер -->
+        <!-- Отправка формы для переключателей на сервер -->
         <input type="submit" value="Выбрать" style="height: 50px" />
       </form>
       <!-- Форма для настройки положений (передний и задний отрезки) -->
@@ -145,7 +146,7 @@ const char main_html[] PROGMEM = R"rawliteral(
   </body>
 </html>)rawliteral";
 
-//Управление (шаг)
+//Страница управления шагом
 const char step_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -206,7 +207,7 @@ const char step_html[] PROGMEM = R"rawliteral(
       <button class="buttonMove" ontouchstart="toggleCheckbox('rightOn');" ontouchend="toggleCheckbox('rightOff');">></button>
       <!-- Форма для выбора шага  -->
       <form action="/" method="POST">
-        <p>Выбранный режим шага: <strong>%STEP%</strong></p>
+        <p>Выбранный режим управления: <strong>%STEP%</strong></p>
         <input type="submit" value="    Шаг    " formaction="/step" style="height: 50px" />
         <input type="submit" value="Движение" formaction="/move" style="height: 50px" />
       </form>
@@ -228,7 +229,7 @@ const char step_html[] PROGMEM = R"rawliteral(
   </body>
 </html>)rawliteral";
 
-//Управление (лево-право)
+//Страница управление движением
 const char keyboard_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -291,7 +292,7 @@ const char keyboard_html[] PROGMEM = R"rawliteral(
       <button class="buttonMove" ontouchstart="toggleCheckbox('rightFastOn');" ontouchend="toggleCheckbox('rightFastOff');">>></button>
       <!-- Форма для выбора шага  -->
       <form action="/" method="POST">
-        <p>Выбранный режим шага: <strong>%STEP%</strong></p>
+        <p>Выбранный режим управления: <strong>%STEP%</strong></p>
         <input type="submit" value="    Шаг    " formaction="/step" style="height: 50px" />
         <input type="submit" value="Движение" formaction="/move" style="height: 50px" />
       </form>
@@ -313,7 +314,7 @@ const char keyboard_html[] PROGMEM = R"rawliteral(
   </body>
 </html>)rawliteral";
 
-//Управление зеркалом
+//Страница управление зеркалом
 const char mirror_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -393,7 +394,7 @@ const char mirror_html[] PROGMEM = R"rawliteral(
       <button style="position: relative" class="buttonMirrorUD" ontouchstart="toggleCheckboxM('downOn');" ontouchend="toggleCheckboxM('downOff');"><div style="transform: rotate(90deg)">></div></button><br />
       <!-- Форма для выбора шага  -->
       <form action="/" method="POST">
-        <p>Выбранный режим шага: <strong>%STEP%</strong></p>
+        <p>Выбранный режим управления: <strong>%STEP%</strong></p>
         <input type="submit" value="    Шаг    " formaction="/step" style="height: 50px" />
         <input type="submit" value="Движение" formaction="/move" style="height: 50px" />
       </form>
@@ -426,8 +427,9 @@ const char off_html[] PROGMEM = R"rawliteral(
     <title>Пульт управления</title>
     <link rel="icon" href="data:," />
   </head>
+  <!-- Выводим сообщение на экран -->
   <body>
-    <p style="position: absolute; width: 100%; top: 30%; text-align: center"><strong>Выключите питание!</strong></p>
+    <p style="position: absolute; width: 100%; top: 30%; text-align: center; font-size: 20px"><strong>Выключите питание!</strong></p>
   </body>
 </html>)rawliteral";
 
@@ -462,7 +464,7 @@ String processor(const String &var) {
   }
   if (var == "STEP") {
     if (digitalRead(D0)) STEP = "Шаг";
-    else STEP = "Движение";
+    else STEP = "Непрерывно";
     return String(STEP);
   }
 }
@@ -581,7 +583,7 @@ void setup() {
     request->send(200, "text/plain", "ok");
   });
 
-  //Кнопки выбора шаг/движение
+  //Кнопки выбора шаг/непрерывно
   server.on("/step", HTTP_POST, [](AsyncWebServerRequest *request) {
     digitalWrite(D0, 1);
     if (direction == "mode4") request->send_P(200, "text/html", mirror_html, processor);
@@ -594,7 +596,7 @@ void setup() {
     else request->send_P(200, "text/html", keyboard_html, processor);
   });
 
-  //Кнопки для сохранения положений
+  //Кнопки для сохранения положений в энергонезависимую память 
   server.on("/frontSegment", HTTP_POST, [](AsyncWebServerRequest *request) {
     modeF = 1;
     digitalWrite(RX, modeF);
@@ -610,7 +612,7 @@ void setup() {
     request->send_P(200, "text/html", main_html, processor);
   });
 
-  //Кнопки для удаления сохраненных положений
+  //Кнопки для удаления сохраненных положений из энергонезависимой памяти
   server.on("/DfrontSegment", HTTP_POST, [](AsyncWebServerRequest *request) {
     modeF = 0;
     digitalWrite(RX, modeF);
@@ -632,9 +634,10 @@ void setup() {
     request->send_P(200, "text/html", off_html);
   });
 
-  //Устанавливаем нужную страницу в зависимости от выбранного режима
+  //Выводим нужную страницу в зависимости от выбранного режима
   server.on("/", HTTP_POST, [](AsyncWebServerRequest *request) 
   {
+    //Получаем значение параметра
     int params = request->params();
     for (int i = 0; i < params; i++) 
     {
@@ -647,6 +650,7 @@ void setup() {
         }
       }
     }
+    //Выводим нужную страницу
     if (direction == "mode1") 
     {
       digitalWrite(D0, 0);
@@ -662,7 +666,7 @@ void setup() {
       digitalWrite(D0, 0);
       request->send_P(200, "text/html", mirror_html, processor);
     } 
-    else request->send_P(200, "text/html", main_html, processor);
+    else request->send_P(200, "text/html", main_html, processor);  //Если не выбран ни один режим, выводим меню выбора
   });
 
   server.onNotFound(notFound);  //Если адрес не найден, выводим сообщение об ошибке
